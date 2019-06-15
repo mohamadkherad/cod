@@ -6,6 +6,7 @@
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { WebviewElement } from 'vs/workbench/contrib/webview/electron-browser/webviewElement';
 import { IWebviewService, WebviewOptions, WebviewContentOptions, Webview } from 'vs/workbench/contrib/webview/common/webview';
+// import { IFrameWebview as WebviewElement } from 'vs/workbench/contrib/webview/browser/webviewElement';
 
 export class WebviewService implements IWebviewService {
 	_serviceBrand: any;
