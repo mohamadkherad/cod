@@ -43,13 +43,9 @@ import { IWorkbenchEnvironmentService } from 'vs/workbench/services/environment/
 import { IEnvironmentService } from 'vs/platform/environment/common/environment';
 import { UNTITLED_WORKSPACE_NAME } from 'vs/platform/workspaces/common/workspaces';
 import { withUndefinedAsNull } from 'vs/base/common/types';
-import { FileEditorInput } from 'vs/workbench/contrib/files/common/editors/fileEditorInput';
-import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
-import { ICustomEditorService } from 'vs/workbench/contrib/webview/common/customEditor';
 
 // Commands
 
-export const OPEN_WITH_COMMAND_ID = 'openWith';
 export const REVEAL_IN_OS_COMMAND_ID = 'revealFileInOS';
 export const REVEAL_IN_OS_LABEL = isWindows ? nls.localize('revealInWindows', "Reveal in Explorer") : isMacintosh ? nls.localize('revealInMac', "Reveal in Finder") : nls.localize('openContainer', "Open Containing Folder");
 export const REVEAL_IN_EXPLORER_COMMAND_ID = 'revealInExplorer';
@@ -419,52 +415,6 @@ function revealResourcesInOS(resources: URI[], windowsService: IWindowsService, 
 		notificationService.info(nls.localize('openFileToReveal', "Open a file first to reveal"));
 	}
 }
-
-KeybindingsRegistry.registerCommandAndKeybindingRule({
-	id: OPEN_WITH_COMMAND_ID,
-	weight: KeybindingWeight.WorkbenchContrib,
-	when: EditorContextKeys.focus.toNegated(),
-	handler: async (accessor: ServicesAccessor, resource: URI | object) => {
-		const editorService = accessor.get(IEditorService);
-		const customEditorService = accessor.get(ICustomEditorService);
-		const quickInputService = accessor.get(IQuickInputService);
-
-		const resources = getMultiSelectedResources(resource, accessor.get(IListService), editorService);
-		const targetResource = resources[0];
-		if (!targetResource) {
-			return;
-		}
-
-		const resourceInput: IResourceInput = { resource: targetResource };
-		const bigInput = editorService.createInput(resourceInput);
-		if (!(bigInput instanceof FileEditorInput)) {
-			return;
-		}
-
-		const preferredEditors = await customEditorService.getCustomEditorsForResource(targetResource);
-		const pick = await quickInputService.pick(
-			[
-				{
-					label: 'Text',
-					id: 'text',
-				},
-				...preferredEditors.map((editorDescriptor): IQuickPickItem => ({
-					label: editorDescriptor.displayName,
-					id: editorDescriptor.id
-				}))
-			],
-			{});
-
-		if (pick) {
-			bigInput.setPreferredEditorId('CustomWebviewEditor');
-			customEditorService.setCustomEditorForResource(bigInput, {
-				id: pick.id!,
-				displayName: pick.label
-			});
-			editorService.openEditor(bigInput);
-		}
-	}
-});
 
 KeybindingsRegistry.registerCommandAndKeybindingRule({
 	id: REVEAL_IN_OS_COMMAND_ID,

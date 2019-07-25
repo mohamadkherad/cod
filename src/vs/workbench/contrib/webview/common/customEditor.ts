@@ -5,7 +5,6 @@
 
 import { URI } from 'vs/base/common/uri';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { FileEditorInput } from 'vs/workbench/contrib/files/common/editors/fileEditorInput';
 
 
 export const ICustomEditorService = createDecorator<ICustomEditorService>('customEditorService');
@@ -17,8 +16,6 @@ export interface ICustomEditorService {
 	_serviceBrand: any;
 
 	getCustomEditorsForResource(resource: URI): Promise<readonly CustomEditorInfo[]>;
-
-	setCustomEditorForResource(input: FileEditorInput, customEditor: CustomEditorInfo): void;
 }
 
 export interface CustomEditorInfo {

@@ -32,7 +32,6 @@ export class FileEditorInput extends EditorInput implements IFileEditorInput {
 	private preferredEncoding: string;
 	private preferredMode: string;
 	private preferredEditorId?: string;
-	private editorSubtype?: string;
 
 	private forceOpenAs: ForceOpenAs = ForceOpenAs.None;
 
@@ -123,14 +122,6 @@ export class FileEditorInput extends EditorInput implements IFileEditorInput {
 
 	getPreferredEditorId(): string | undefined {
 		return this.preferredEditorId;
-	}
-
-	setEditorSubtype(subtype: string): void {
-		this.editorSubtype = subtype;
-	}
-
-	getEditorSubtype(): string | undefined {
-		return this.editorSubtype;
 	}
 
 	getPreferredMode(): string | undefined {
