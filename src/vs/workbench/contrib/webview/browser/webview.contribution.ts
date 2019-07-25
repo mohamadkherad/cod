@@ -20,8 +20,6 @@ import { HideWebViewEditorFindCommand, ReloadWebviewAction, ShowWebViewEditorFin
 import { WebviewEditor } from '../browser/webviewEditor';
 import { WebviewEditorInput } from '../browser/webviewEditorInput';
 import { IWebviewEditorService, WebviewEditorService } from '../browser/webviewEditorService';
-import { ICustomEditorService, } from 'vs/workbench/contrib/webview/common/customEditor';
-import { CustomEditorService } from './customEditors';
 
 (Registry.as<IEditorRegistry>(EditorExtensions.Editors)).registerEditor(new EditorDescriptor(
 	WebviewEditor,
@@ -34,7 +32,6 @@ Registry.as<IEditorInputFactoryRegistry>(EditorInputExtensions.EditorInputFactor
 	WebviewEditorInputFactory);
 
 registerSingleton(IWebviewEditorService, WebviewEditorService, true);
-registerSingleton(ICustomEditorService, CustomEditorService, true);
 
 const actionRegistry = Registry.as<IWorkbenchActionRegistry>(ActionExtensions.WorkbenchActions);
 
