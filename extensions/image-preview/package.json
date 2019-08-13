@@ -24,7 +24,8 @@
         "viewType": "imagePreview.previewEditor",
         "displayName": "Image Preview",
         "extensions": [
-          ".png"
+          ".png",
+          ".jpg"
         ]
       }
     ]

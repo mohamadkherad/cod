@@ -7,7 +7,7 @@ import { memoize } from 'vs/base/common/decorators';
 import { URI } from 'vs/base/common/uri';
 import { IEditorModel } from 'vs/platform/editor/common/editor';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
-import { EditorInput, EditorModel, GroupIdentifier, IEditorInput } from 'vs/workbench/common/editor';
+import { EditorInput, EditorModel, GroupIdentifier, IEditorInput, Verbosity } from 'vs/workbench/common/editor';
 import { WebviewEditorOverlay } from 'vs/workbench/contrib/webview/common/webview';
 import { UnownedDisposable as Unowned } from 'vs/base/common/lifecycle';
 
@@ -95,7 +95,7 @@ export class WebviewEditorInput extends EditorInput {
 		return this._name;
 	}
 
-	public getTitle() {
+	public getTitle(_verbosity?: Verbosity) {
 		return this.getName();
 	}
 

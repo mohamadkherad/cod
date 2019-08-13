@@ -18,8 +18,8 @@ import { ResourceContextKey } from 'vs/workbench/common/resources';
 import { getMultiSelectedResources } from 'vs/workbench/contrib/files/browser/files';
 import { FileEditorInput } from 'vs/workbench/contrib/files/common/editors/fileEditorInput';
 import { TEXT_FILE_EDITOR_ID } from 'vs/workbench/contrib/files/common/files';
-import { ICustomEditorService } from 'vs/workbench/contrib/webviewEditor/common/customEditor';
 import { IWebviewService } from 'vs/workbench/contrib/webview/common/webview';
+import { ICustomEditorService } from 'vs/workbench/contrib/webviewEditor/common/customEditor';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { CustomFileEditorInput } from './customEditors';
 
@@ -61,12 +61,10 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 				const editor = instantiationService.createInstance(FileEditorInput, targetResource, undefined, undefined);
 				editor.setPreferredEditorId(TEXT_FILE_EDITOR_ID);
 				editorService.openEditor(editor);
-			}
-			else {
+			} else {
 				const id = generateUuid();
 				const webview = _webviewService.createWebviewEditorOverlay(id, {}, {});
-				const editor = instantiationService.createInstance(CustomFileEditorInput, targetResource, pick.id, id, 'name', undefined, new UnownedDisposable(webview));
-				// editor.setPreferredEditorId(CustomWebviewEditor.ID);
+				const editor = instantiationService.createInstance(CustomFileEditorInput, targetResource, pick.id, id, new UnownedDisposable(webview));
 				editorService.openEditor(editor);
 			}
 		}

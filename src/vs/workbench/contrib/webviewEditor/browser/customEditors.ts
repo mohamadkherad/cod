@@ -4,46 +4,77 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { CancellationToken } from 'vs/base/common/cancellation';
+import { memoize } from 'vs/base/common/decorators';
 import { UnownedDisposable } from 'vs/base/common/lifecycle';
+import { basename } from 'vs/base/common/path';
 import { endsWith } from 'vs/base/common/strings';
 import { URI } from 'vs/base/common/uri';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
-import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
-import { Registry } from 'vs/platform/registry/common/platform';
+import { ILabelService } from 'vs/platform/label/common/label';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { IWindowService } from 'vs/platform/windows/common/windows';
-import { EditorDescriptor, Extensions as EditorExtensions, IEditorRegistry } from 'vs/workbench/browser/editor';
-import { EditorInput, EditorOptions, IEditorInput } from 'vs/workbench/common/editor';
+import { EditorInput, EditorOptions, IEditorInput, Verbosity } from 'vs/workbench/common/editor';
 import { WebviewEditor } from 'vs/workbench/contrib/webview/browser/webviewEditor';
 import { WebviewEditorInput } from 'vs/workbench/contrib/webview/browser/webviewEditorInput';
+import { IWebviewEditorService } from 'vs/workbench/contrib/webview/browser/webviewEditorService';
 import { contributionPoint, WebviewEditorOverlay } from 'vs/workbench/contrib/webview/common/webview';
 import { CustomEditorInfo, ICustomEditorService } from 'vs/workbench/contrib/webviewEditor/common/customEditor';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { IWebviewEditorService } from 'vs/workbench/contrib/webview/browser/webviewEditorService';
 
 export class CustomFileEditorInput extends WebviewEditorInput {
+	private name?: string;
+
 	constructor(
 		resource: URI,
 		viewType: string,
 		id: string,
-		name: string,
-		extension: undefined | {
-			readonly location: URI;
-			readonly id: ExtensionIdentifier;
-		},
 		webview: UnownedDisposable<WebviewEditorOverlay>,
+		@ILabelService private readonly labelService: ILabelService,
 	) {
-		super(id, viewType, name, extension, webview, resource);
+		super(id, viewType, '', undefined, webview, resource);
+	}
+
+	getName(): string {
+		if (!this.name) {
+			this.name = basename(this.labelService.getUriLabel(this.editorResource));
+		}
+		return this.name;
 	}
 
 	matches(other: IEditorInput): boolean {
 		return super.matches(other)
 			&& other instanceof CustomFileEditorInput
 			&& this.viewType === other.viewType;
+	}
+
+	@memoize
+	private get shortTitle(): string {
+		return this.getName();
+	}
+
+	@memoize
+	private get mediumTitle(): string {
+		return this.labelService.getUriLabel(this.editorResource, { relative: true });
+	}
+
+	@memoize
+	private get longTitle(): string {
+		return this.labelService.getUriLabel(this.editorResource);
+	}
+
+	getTitle(verbosity: Verbosity): string {
+		switch (verbosity) {
+			case Verbosity.SHORT:
+				return this.shortTitle;
+			default:
+			case Verbosity.MEDIUM:
+				return this.mediumTitle;
+			case Verbosity.LONG:
+				return this.longTitle;
+		}
 	}
 }
 
@@ -79,11 +110,9 @@ export class CustomEditorService implements ICustomEditorService {
 	}
 }
 
-class CustomWebviewEditor extends WebviewEditor {
+export class CustomWebviewEditor extends WebviewEditor {
 
 	public static readonly ID = 'CustomWebviewEditor';
-
-	// private static readonly webviewInputs = new Map<FileEditorInput, WebviewEditorInput>();
 
 	constructor(
 		@IWebviewEditorService private readonly _webviewEditorService: IWebviewEditorService,
@@ -109,24 +138,9 @@ class CustomWebviewEditor extends WebviewEditor {
 		}
 
 		const viewType = input.viewType;
-		if (!viewType) {
-			return;
-		}
-
 		this._extensionService.activateByEvent(`onWebviewEditor:${viewType}`);
+
 		await this._webviewEditorService.resolveWebview(input);
 		await super.setInput(input, options, token);
 	}
 }
-
-Registry.as<IEditorRegistry>(EditorExtensions.Editors).registerEditor(
-	new EditorDescriptor(
-		CustomWebviewEditor,
-		CustomWebviewEditor.ID,
-		'Custom Editor',
-	), [
-		new SyncDescriptor(CustomFileEditorInput)
-	]);
-
-
-
