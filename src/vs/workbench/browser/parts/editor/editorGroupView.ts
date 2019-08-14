@@ -43,7 +43,7 @@ import { StandardMouseEvent } from 'vs/base/browser/mouseEvent';
 import { createAndFillInContextMenuActions } from 'vs/platform/actions/browser/menuEntryActionViewItem';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { isErrorWithActions, IErrorWithActions } from 'vs/base/common/errorsWithActions';
-import { IVisibleEditor } from 'vs/workbench/services/editor/common/editorService';
+import { IVisibleEditor, IEditorOpeningEventFallthrough } from 'vs/workbench/services/editor/common/editorService';
 import { withNullAsUndefined, withUndefinedAsNull } from 'vs/base/common/types';
 import { hash } from 'vs/base/common/hash';
 import { guessMimeTypes } from 'vs/base/common/mime';
@@ -810,7 +810,10 @@ export class EditorGroupView extends Themable implements IEditorGroupView {
 		this._onWillOpenEditor.fire(event);
 		const prevented = event.isPrevented();
 		if (prevented) {
-			return prevented();
+			const result = await prevented();
+			if (result !== IEditorOpeningEventFallthrough) {
+				return withUndefinedAsNull(result);
+			}
 		}
 
 		// Proceed with opening
@@ -1498,7 +1501,7 @@ export class EditorGroupView extends Themable implements IEditorGroupView {
 }
 
 class EditorOpeningEvent implements IEditorOpeningEvent {
-	private override: () => Promise<IEditor>;
+	private override: () => Promise<IEditor | undefined | typeof IEditorOpeningEventFallthrough>;
 
 	constructor(
 		private _group: GroupIdentifier,
@@ -1519,11 +1522,11 @@ class EditorOpeningEvent implements IEditorOpeningEvent {
 		return this._options;
 	}
 
-	prevent(callback: () => Promise<IEditor>): void {
+	prevent(callback: () => Promise<IEditor | undefined | typeof IEditorOpeningEventFallthrough>): void {
 		this.override = callback;
 	}
 
-	isPrevented(): () => Promise<IEditor> {
+	isPrevented(): () => Promise<IEditor | undefined | typeof IEditorOpeningEventFallthrough> {
 		return this.override;
 	}
 }

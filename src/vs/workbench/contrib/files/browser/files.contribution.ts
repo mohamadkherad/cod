@@ -138,7 +138,6 @@ interface ISerializedFileInput {
 	resourceJSON: object;
 	encoding?: string;
 	modeId?: string;
-	preferredEditorId?: string;
 }
 
 // Register Editor Input Factory
@@ -154,7 +153,6 @@ class FileEditorInputFactory implements IEditorInputFactory {
 			resourceJSON: resource.toJSON(),
 			encoding: fileEditorInput.getEncoding(),
 			modeId: fileEditorInput.getPreferredMode(), // only using the preferred user associated mode here if available to not store redundant data
-			preferredEditorId: fileEditorInput.getPreferredEditorId(),
 		};
 
 		return JSON.stringify(fileInput);
@@ -166,12 +164,8 @@ class FileEditorInputFactory implements IEditorInputFactory {
 			const resource = !!fileInput.resourceJSON ? URI.revive(<UriComponents>fileInput.resourceJSON) : URI.parse(fileInput.resource);
 			const encoding = fileInput.encoding;
 			const mode = fileInput.modeId;
-			const preferredEditorId = fileInput.preferredEditorId;
 
 			const input = (accessor.get(IEditorService).createInput({ resource, encoding, mode, forceFile: true }) as FileEditorInput);
-			if (preferredEditorId) {
-				input.setPreferredEditorId(preferredEditorId);
-			}
 			return input;
 		});
 	}

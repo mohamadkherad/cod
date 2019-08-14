@@ -14,7 +14,7 @@ import { IConfigurationChangeEvent } from 'vs/platform/configuration/common/conf
 import { ISerializableView } from 'vs/base/browser/ui/grid/grid';
 import { getCodeEditor } from 'vs/editor/browser/editorBrowser';
 import { IEditorOptions } from 'vs/platform/editor/common/editor';
-import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
+import { IEditorService, IEditorOpeningEventFallthrough } from 'vs/workbench/services/editor/common/editorService';
 
 export const EDITOR_TITLE_HEIGHT = 35;
 
@@ -77,7 +77,7 @@ export interface IEditorOpeningEvent extends IEditorIdentifier {
 	 * to return a promise that resolves to NULL to prevent the opening
 	 * alltogether.
 	 */
-	prevent(callback: () => undefined | Promise<IEditor | undefined>): void;
+	prevent(callback: () => undefined | Promise<IEditor | undefined | typeof IEditorOpeningEventFallthrough>): void;
 }
 
 export interface IEditorGroupsAccessor {

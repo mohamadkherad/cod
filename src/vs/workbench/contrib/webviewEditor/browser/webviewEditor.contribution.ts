@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as nls from 'vs/nls';
+import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from 'vs/platform/configuration/common/configurationRegistry';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { Registry } from 'vs/platform/registry/common/platform';
@@ -11,7 +13,7 @@ import { ICustomEditorService } from 'vs/workbench/contrib/webviewEditor/common/
 import { CustomEditorService, CustomFileEditorInput, CustomWebviewEditor } from '../../webviewEditor/browser/customEditors';
 import './commands';
 
-registerSingleton(ICustomEditorService, CustomEditorService, true);
+registerSingleton(ICustomEditorService, CustomEditorService);
 
 Registry.as<IEditorRegistry>(EditorExtensions.Editors).registerEditor(
 	new EditorDescriptor(
@@ -21,3 +23,22 @@ Registry.as<IEditorRegistry>(EditorExtensions.Editors).registerEditor(
 	), [
 		new SyncDescriptor(CustomFileEditorInput)
 	]);
+
+// Configuration
+(function registerConfiguration(): void {
+	const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
+	// Telemetry
+	registry.registerConfiguration({
+		'id': 'workbench',
+		'order': 7,
+		'title': nls.localize('workbenchConfigurationTitle', "Workbench"),
+		'type': 'object',
+		'properties': {
+			'workbench.editor.custom': {
+				'type': 'object',
+				'description': nls.localize('editor.custom', "TODO."),
+				'default': {}
+			}
+		}
+	});
+})();

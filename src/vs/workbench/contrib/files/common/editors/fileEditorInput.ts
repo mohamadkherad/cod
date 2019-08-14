@@ -31,7 +31,6 @@ const enum ForceOpenAs {
 export class FileEditorInput extends EditorInput implements IFileEditorInput {
 	private preferredEncoding: string;
 	private preferredMode: string;
-	private preferredEditorId?: string;
 
 	private forceOpenAs: ForceOpenAs = ForceOpenAs.None;
 
@@ -114,14 +113,6 @@ export class FileEditorInput extends EditorInput implements IFileEditorInput {
 	setPreferredEncoding(encoding: string): void {
 		this.preferredEncoding = encoding;
 		this.forceOpenAs = ForceOpenAs.Text; // encoding is a good hint to open the file as text
-	}
-
-	setPreferredEditorId(editorId: string): void {
-		this.preferredEditorId = editorId;
-	}
-
-	getPreferredEditorId(): string | undefined {
-		return this.preferredEditorId;
 	}
 
 	getPreferredMode(): string | undefined {
@@ -268,11 +259,6 @@ export class FileEditorInput extends EditorInput implements IFileEditorInput {
 	}
 
 	selectPreferredEditor(candidates: string[]): string {
-		if (this.preferredEditorId) {
-			if (candidates.indexOf(this.preferredEditorId) >= 0) {
-				return this.preferredEditorId;
-			}
-		}
 		return this.forceOpenAs === ForceOpenAs.Binary ? BINARY_FILE_EDITOR_ID : TEXT_FILE_EDITOR_ID;
 	}
 

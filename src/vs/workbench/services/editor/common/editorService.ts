@@ -30,13 +30,15 @@ export interface IOpenEditorOverrideHandler {
 	(editor: IEditorInput, options: IEditorOptions | ITextEditorOptions | undefined, group: IEditorGroup): IOpenEditorOverride | undefined;
 }
 
+export const IEditorOpeningEventFallthrough = 'continue';
+
 export interface IOpenEditorOverride {
 
 	/**
 	 * If defined, will prevent the opening of an editor and replace the resulting
 	 * promise with the provided promise for the openEditor() call.
 	 */
-	override?: Promise<IEditor | null>;
+	override?: Promise<IEditor | null | typeof IEditorOpeningEventFallthrough>;
 }
 
 export interface IVisibleEditor extends IEditor {

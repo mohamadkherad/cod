@@ -9,19 +9,27 @@ import { UnownedDisposable } from 'vs/base/common/lifecycle';
 import { basename } from 'vs/base/common/path';
 import { endsWith } from 'vs/base/common/strings';
 import { URI } from 'vs/base/common/uri';
+import { generateUuid } from 'vs/base/common/uuid';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { ITextEditorOptions } from 'vs/platform/editor/common/editor';
+import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ILabelService } from 'vs/platform/label/common/label';
+import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { IWindowService } from 'vs/platform/windows/common/windows';
 import { EditorInput, EditorOptions, IEditorInput, Verbosity } from 'vs/workbench/common/editor';
+import { FileEditorInput } from 'vs/workbench/contrib/files/common/editors/fileEditorInput';
+import { TEXT_FILE_EDITOR_ID } from 'vs/workbench/contrib/files/common/files';
 import { WebviewEditor } from 'vs/workbench/contrib/webview/browser/webviewEditor';
 import { WebviewEditorInput } from 'vs/workbench/contrib/webview/browser/webviewEditorInput';
 import { IWebviewEditorService } from 'vs/workbench/contrib/webview/browser/webviewEditorService';
-import { contributionPoint, WebviewEditorOverlay } from 'vs/workbench/contrib/webview/common/webview';
+import { contributionPoint, IWebviewService, WebviewEditorOverlay } from 'vs/workbench/contrib/webview/common/webview';
 import { CustomEditorInfo, ICustomEditorService } from 'vs/workbench/contrib/webviewEditor/common/customEditor';
-import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
+import { IEditorGroup } from 'vs/workbench/services/editor/common/editorGroupsService';
+import { IEditorService, IOpenEditorOverride } from 'vs/workbench/services/editor/common/editorService';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 
 export class CustomFileEditorInput extends WebviewEditorInput {
@@ -78,13 +86,18 @@ export class CustomFileEditorInput extends WebviewEditorInput {
 	}
 }
 
-
 export class CustomEditorService implements ICustomEditorService {
 	_serviceBrand: any;
 
 	public readonly _customEditors: Array<CustomEditorInfo & { extensions: readonly string[] }> = [];
 
-	constructor() {
+	constructor(
+		@IEditorService private readonly editorService: IEditorService,
+		@IWebviewService private readonly webviewService: IWebviewService,
+		@IInstantiationService private readonly instantiationService: IInstantiationService,
+		@IConfigurationService private readonly configurationService: IConfigurationService,
+		@IQuickInputService private readonly quickInputService: IQuickInputService,
+	) {
 		contributionPoint.setHandler(extensions => {
 			for (const extension of extensions) {
 				for (const webviewEditorContribution of extension.value) {
@@ -96,9 +109,10 @@ export class CustomEditorService implements ICustomEditorService {
 				}
 			}
 		});
+		this.editorService.overrideOpenEditor((editor, options, group) => this.onEditorOpening(editor, options, group));
 	}
 
-	async getCustomEditorsForResource(resource: URI): Promise<readonly CustomEditorInfo[]> {
+	public getCustomEditorsForResource(resource: URI): readonly CustomEditorInfo[] {
 		const out: CustomEditorInfo[] = [];
 		for (const customEditor of this._customEditors) {
 			if (customEditor.extensions.some(extension => endsWith(resource.toString(), extension))) {
@@ -107,6 +121,90 @@ export class CustomEditorService implements ICustomEditorService {
 		}
 
 		return out;
+	}
+
+	public async openWith(
+		resource: URI,
+		options?: ITextEditorOptions,
+		group?: IEditorGroup,
+	): Promise<void> {
+		const preferredEditors = await this.getCustomEditorsForResource(resource);
+		const pick = await this.quickInputService.pick([
+			{
+				label: 'Text',
+				id: TEXT_FILE_EDITOR_ID,
+			},
+			...preferredEditors.map((editorDescriptor): IQuickPickItem => ({
+				label: editorDescriptor.displayName,
+				id: editorDescriptor.id
+			}))
+		], {});
+
+		if (!pick) {
+			return;
+		}
+
+		if (pick.id === TEXT_FILE_EDITOR_ID) {
+			const editor = this.instantiationService.createInstance(FileEditorInput, resource, undefined, undefined);
+			this.editorService.openEditor(editor, options, group);
+		} else {
+			this.openCustomEditor(resource, pick.id!, options, group);
+		}
+	}
+
+	private openCustomEditor(
+		resource: URI,
+		viewType: string,
+		options?: ITextEditorOptions,
+		group?: IEditorGroup,
+	) {
+		const id = generateUuid();
+		const webview = this.webviewService.createWebviewEditorOverlay(id, {}, {});
+		const input = this.instantiationService.createInstance(CustomFileEditorInput, resource, viewType, id, new UnownedDisposable(webview));
+		return this.editorService.openEditor(input, options, group);
+	}
+
+	private onEditorOpening(
+		editor: IEditorInput,
+		options: ITextEditorOptions | undefined,
+		group: IEditorGroup
+	): IOpenEditorOverride | undefined {
+		if (editor instanceof CustomFileEditorInput) {
+			return;
+		}
+
+		const resource = editor.getResource();
+		if (!resource) {
+			return;
+		}
+
+		const customEditors = this.getCustomEditorsForResource(resource);
+		if (!customEditors.length) {
+			return;
+		}
+
+		return {
+			override: (async () => {
+				const preferedViewType = this.getConfiguredCustomEditor(resource);
+				if (preferedViewType) {
+					return this.openCustomEditor(resource, preferedViewType, options, group);
+				} else {
+					// prompt the user for which editor they wish to use
+					this.openWith(resource, options, group);
+					return null;
+				}
+			})()
+		};
+	}
+
+	private getConfiguredCustomEditor(resource: URI): string | undefined {
+		const config = this.configurationService.getValue<{ [key: string]: string }>('workbench.editor.custom') || {};
+		for (const ext of Object.keys(config)) {
+			if (endsWith(resource.toString(), ext)) {
+				return config[ext];
+			}
+		}
+		return undefined;
 	}
 }
 
