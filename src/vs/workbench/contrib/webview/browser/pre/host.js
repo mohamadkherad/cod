@@ -5,6 +5,7 @@
 // @ts-check
 (function () {
 	const id = document.location.search.match(/\bid=([\w-]+)/)[1];
+	const noServiceWorker = /noServiceWorker/g.test(document.location.search);
 
 	const hostMessaging = new class HostMessaging {
 		constructor() {
@@ -36,35 +37,41 @@
 	}();
 
 	const workerReady = new Promise(async (resolveWorkerReady) => {
+		if (noServiceWorker) {
+			return resolveWorkerReady();
+		}
+
 		if (!areServiceWorkersEnabled()) {
 			console.log('Service Workers are not enabled. Webviews will not work properly');
 			return resolveWorkerReady();
 		}
 
 		const expectedWorkerVersion = 1;
+		try {
+			navigator.serviceWorker.register('service-worker.js').then(async registration => {
+				await navigator.serviceWorker.ready;
 
-		navigator.serviceWorker.register('service-worker.js').then(async registration => {
-			await navigator.serviceWorker.ready;
+				const versionHandler = (event) => {
+					if (event.data.channel !== 'version') {
+						return;
+					}
 
-			const versionHandler = (event) => {
-				if (event.data.channel !== 'version') {
-					return;
-				}
-
-				navigator.serviceWorker.removeEventListener('message', versionHandler);
-				if (event.data.version === expectedWorkerVersion) {
-					return resolveWorkerReady();
-				} else {
-					// If we have the wrong version, try once to unregister and re-register
-					return registration.update()
-						.then(() => navigator.serviceWorker.ready)
-						.finally(resolveWorkerReady);
-				}
-			};
-			navigator.serviceWorker.addEventListener('message', versionHandler);
-			registration.active.postMessage({ channel: 'version' });
-		});
-
+					navigator.serviceWorker.removeEventListener('message', versionHandler);
+					if (event.data.version === expectedWorkerVersion) {
+						return resolveWorkerReady();
+					} else {
+						// If we have the wrong version, try once to unregister and re-register
+						return registration.update()
+							.then(() => navigator.serviceWorker.ready)
+							.finally(resolveWorkerReady);
+					}
+				};
+				navigator.serviceWorker.addEventListener('message', versionHandler);
+				registration.active.postMessage({ channel: 'version' });
+			});
+		} catch (e) {
+			console.log(e);
+		}
 		const forwardFromHostToWorker = (channel) => {
 			hostMessaging.onMessage(channel, event => {
 				navigator.serviceWorker.ready.then(registration => {

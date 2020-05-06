@@ -5,19 +5,18 @@
 
 import { addDisposableListener } from 'vs/base/browser/dom';
 import { IDisposable } from 'vs/base/common/lifecycle';
-import { isWeb } from 'vs/base/common/platform';
 import { URI } from 'vs/base/common/uri';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IEnvironmentService } from 'vs/platform/environment/common/environment';
 import { IFileService } from 'vs/platform/files/common/files';
 import { ITunnelService } from 'vs/platform/remote/common/tunnel';
-import { Webview, WebviewContentOptions, WebviewOptions } from 'vs/workbench/contrib/webview/browser/webview';
+import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
+import { loadLocalResource, WebviewResourceResponse } from 'vs/platform/webview/common/resourceLoader';
+import { BaseWebview, WebviewMessageChannels } from 'vs/workbench/contrib/webview/browser/baseWebviewElement';
+import { Webview, WebviewContentOptions, WebviewExtensionDescription, WebviewOptions } from 'vs/workbench/contrib/webview/browser/webview';
 import { WebviewPortMappingManager } from 'vs/workbench/contrib/webview/common/portMapping';
-import { loadLocalResource, WebviewResourceResponse } from 'vs/workbench/contrib/webview/common/resourceLoader';
 import { WebviewThemeDataProvider } from 'vs/workbench/contrib/webview/common/themeing';
 import { IWorkbenchEnvironmentService } from 'vs/workbench/services/environment/common/environmentService';
-import { BaseWebview, WebviewMessageChannels } from 'vs/workbench/contrib/webview/browser/baseWebviewElement';
-import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
-import { IEnvironmentService } from 'vs/platform/environment/common/environment';
 
 export class IFrameWebview extends BaseWebview<HTMLIFrameElement> implements Webview {
 	private readonly _portMappingManager: WebviewPortMappingManager;
@@ -26,19 +25,20 @@ export class IFrameWebview extends BaseWebview<HTMLIFrameElement> implements Web
 		id: string,
 		options: WebviewOptions,
 		contentOptions: WebviewContentOptions,
+		extension: WebviewExtensionDescription | undefined,
 		webviewThemeDataProvider: WebviewThemeDataProvider,
 		@ITunnelService tunnelService: ITunnelService,
 		@IFileService private readonly fileService: IFileService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IConfigurationService _configurationService: IConfigurationService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IEnvironmentService environementService: IEnvironmentService,
 		@IWorkbenchEnvironmentService workbenchEnvironmentService: IWorkbenchEnvironmentService,
 	) {
-		super(id, options, contentOptions, webviewThemeDataProvider, telemetryService, environementService, workbenchEnvironmentService);
+		super(id, options, contentOptions, extension, webviewThemeDataProvider, telemetryService, environementService, workbenchEnvironmentService);
 
-		if (!this.useExternalEndpoint && (!workbenchEnvironmentService.options || typeof workbenchEnvironmentService.webviewExternalEndpoint !== 'string')) {
-			throw new Error('To use iframe based webviews, you must configure `environmentService.webviewExternalEndpoint`');
-		}
+		// if (!this.useExternalEndpoint && (!workbenchEnvironmentService.options || typeof workbenchEnvironmentService.webviewExternalEndpoint !== 'string')) {
+		// 	throw new Error('To use iframe based webviews, you must configure `environmentService.webviewExternalEndpoint`');
+		// }
 
 		this._portMappingManager = this._register(new WebviewPortMappingManager(
 			() => this.extension ? this.extension.location : undefined,
@@ -58,7 +58,7 @@ export class IFrameWebview extends BaseWebview<HTMLIFrameElement> implements Web
 		}));
 	}
 
-	protected createElement(options: WebviewOptions) {
+	protected createElement(options: WebviewOptions, contentOptions: WebviewContentOptions) {
 		const element = document.createElement('iframe');
 		element.className = `webview ${options.customClasses || ''}`;
 		element.sandbox.add('allow-scripts', 'allow-same-origin', 'allow-forms');
@@ -77,9 +77,9 @@ export class IFrameWebview extends BaseWebview<HTMLIFrameElement> implements Web
 		return endpoint;
 	}
 
-	private get useExternalEndpoint(): boolean {
-		return isWeb || this._configurationService.getValue<boolean>('webview.experimental.useExternalEndpoint');
-	}
+	// private get useExternalEndpoint(): boolean {
+	// 	return isWeb || this._configurationService.getValue<boolean>('webview.experimental.useExternalEndpoint');
+	// }
 
 	public mountTo(parent: HTMLElement) {
 		if (this.element) {
@@ -91,7 +91,7 @@ export class IFrameWebview extends BaseWebview<HTMLIFrameElement> implements Web
 		super.html = this.preprocessHtml(value);
 	}
 
-	private preprocessHtml(value: string): string {
+	protected preprocessHtml(value: string): string {
 		return value
 			.replace(/(["'])vscode-resource:(\/\/([^\s\/'"]+?)(?=\/))?([^\s'"]+?)(["'])/gi, (match, startQuote, _1, scheme, path, endQuote) => {
 				if (scheme) {

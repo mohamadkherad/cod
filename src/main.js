@@ -79,7 +79,28 @@ setCurrentWorkingDirectory();
 
 // Register custom schemes with privileges
 protocol.registerSchemesAsPrivileged([
-	{ scheme: 'vscode-resource', privileges: { secure: true, supportFetchAPI: true, corsEnabled: true } }
+	{
+		scheme: 'vscode-resource',
+		privileges: {
+			secure: true,
+			supportFetchAPI: true,
+			corsEnabled: true
+		}
+	}, {
+		scheme: 'vscode-webview',
+		privileges: {
+			standard: true,
+			secure: true,
+		}
+	}, {
+		scheme: 'vscode-resource',
+		privileges: {
+			standard: true,
+			secure: true,
+			supportFetchAPI: true,
+			corsEnabled: true,
+		}
+	},
 ]);
 
 // Global app listeners

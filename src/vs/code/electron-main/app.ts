@@ -38,7 +38,7 @@ import product from 'vs/platform/product/common/product';
 import { ProxyAuthHandler } from 'vs/code/electron-main/auth';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IWindowsMainService, ICodeWindow } from 'vs/platform/windows/electron-main/windows';
-import { URI } from 'vs/base/common/uri';
+import { URI, UriComponents } from 'vs/base/common/uri';
 import { hasWorkspaceFileExtension, IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
 import { WorkspacesService } from 'vs/platform/workspaces/electron-main/workspacesService';
 import { getMachineId } from 'vs/base/node/id';
@@ -81,24 +81,30 @@ import { IStorageKeysSyncRegistryService } from 'vs/platform/userDataSync/common
 import { StorageKeysSyncRegistryChannel } from 'vs/platform/userDataSync/common/userDataSyncIpc';
 import { INativeEnvironmentService } from 'vs/platform/environment/node/environmentService';
 import { mnemonicButtonLabel, getPathLabel } from 'vs/base/common/labels';
+import { IFileService } from 'vs/platform/files/common/files';
+import { loadLocalResource, WebviewResourceResponse } from 'vs/platform/webview/common/resourceLoader';
 
 export class CodeApplication extends Disposable {
 	private windowsMainService: IWindowsMainService | undefined;
 	private dialogMainService: IDialogMainService | undefined;
+	private webviewProtocolProvider: WebviewProtocolProvider;
 
 	constructor(
 		private readonly mainIpcServer: Server,
 		private readonly userEnv: IProcessEnvironment,
+		@IFileService fileService: IFileService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@ILogService private readonly logService: ILogService,
 		@IEnvironmentService private readonly environmentService: INativeEnvironmentService,
 		@ILifecycleMainService private readonly lifecycleMainService: ILifecycleMainService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
-		@IStateService private readonly stateService: IStateService
+		@IStateService private readonly stateService: IStateService,
 	) {
 		super();
 
 		this.registerListeners();
+
+		this.webviewProtocolProvider = new WebviewProtocolProvider(fileService);
 	}
 
 	private registerListeners(): void {
@@ -829,6 +835,8 @@ export class CodeApplication extends Disposable {
 		// Remote Authorities
 		this.handleRemoteAuthorities();
 
+		this.webviewProtocolProvider.register();
+
 		// Initialize update service
 		const updateService = accessor.get(IUpdateService);
 		if (updateService instanceof Win32UpdateService || updateService instanceof LinuxUpdateService || updateService instanceof DarwinUpdateService) {
@@ -842,6 +850,82 @@ export class CodeApplication extends Disposable {
 				url: request.url.replace(/^vscode-remote-resource:/, 'http:'),
 				method: request.method
 			});
+		});
+	}
+}
+
+class WebviewProtocolProvider {
+
+	private static validWebviewPaths = new Map([
+		['/', 'index.html'],
+		['/index.html', 'index.html'],
+		['/fake.html', 'fake.html'],
+		['/main.js', 'main.js'],
+		['/host.js', 'host.js'],
+		['/service-worker.js', 'service-worker.js'],
+	]);
+
+	private readonly webviewMetadata = new Map<string, {
+		readonly extensionLocation: URI | undefined;
+		readonly localResourceRoots: URI[];
+	}>();
+
+	constructor(
+		@IFileService private readonly fileService: IFileService,
+	) {
+		ipc.on('vscode:registerWebview', (_event: IpcMainEvent, id: string, data: any) => {
+			if (this.webviewMetadata.has(id)) {
+				throw new Error(`Webview '${id}' is already registered`);
+			}
+
+			this.webviewMetadata.set(id, {
+				extensionLocation: data.extensionLocation ? URI.from(data.extensionLocation) : undefined,
+				localResourceRoots: Array.isArray(data.localResourceRoots) ? data.localResourceRoots.map((x: UriComponents) => URI.from(x)) : []
+			});
+		});
+	}
+
+	public register() {
+		protocol.registerFileProtocol(Schemas.vscodeWebview, (request, callback: any) => {
+			try {
+				const uri = URI.parse(request.url);
+				const entry = WebviewProtocolProvider.validWebviewPaths.get(uri.path);
+				if (typeof entry === 'string') {
+					const url = require.toUrl(`vs/workbench/contrib/webview/browser/pre/${entry}`);
+					return callback(url.replace('file://', ''));
+				}
+			} catch {
+				// noop
+			}
+			callback({ error: -10 /* ACCESS_DENIED - https://cs.chromium.org/chromium/src/net/base/net_error_list.h?l=32 */ });
+		});
+
+		protocol.registerBufferProtocol(Schemas.vscodeWebviewResource, async (request, callback: any) => {
+			try {
+				const uri = URI.parse(request.url);
+				const resource = URI.parse(uri.path.replace(/^\/(\w+)/, '$1:'));
+
+				const id = uri.authority;
+				const metadata = this.webviewMetadata.get(id);
+				if (metadata) {
+					const result = await loadLocalResource(resource, this.fileService, metadata.extensionLocation, () => metadata.localResourceRoots);
+					if (result.type === WebviewResourceResponse.Type.Success) {
+						return callback({
+							data: Buffer.from(result.data.buffer),
+							mimeType: result.mimeType
+						});
+					}
+
+					if (result.type === WebviewResourceResponse.Type.AccessDenied) {
+						console.error('Webview: Cannot load resource outside of protocol root');
+						return callback({ error: -10 /* ACCESS_DENIED: https://cs.chromium.org/chromium/src/net/base/net_error_list.h */ });
+					}
+				}
+			} catch {
+				// noop
+			}
+
+			return callback({ error: -2 /* FAILED: https://cs.chromium.org/chromium/src/net/base/net_error_list.h */ });
 		});
 	}
 }
