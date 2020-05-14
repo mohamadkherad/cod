@@ -8,8 +8,8 @@ import { sep } from 'vs/base/common/path';
 import { URI } from 'vs/base/common/uri';
 import { IFileService } from 'vs/platform/files/common/files';
 import { REMOTE_HOST_SCHEME } from 'vs/platform/remote/common/remoteHosts';
-import { getWebviewContentMimeType } from 'vs/workbench/contrib/webview/common/mimeTypes';
 import { isUNC } from 'vs/base/common/extpath';
+import { getWebviewContentMimeType } from 'vs/platform/webview/common/mimeTypes';
 
 export const WebviewResourceScheme = 'vscode-resource';
 

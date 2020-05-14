@@ -19,7 +19,7 @@ import { CodeCellViewModel } from 'vs/workbench/contrib/notebook/browser/viewMod
 import { IOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { IWebviewService, WebviewElement } from 'vs/workbench/contrib/webview/browser/webview';
-import { WebviewResourceScheme } from 'vs/workbench/contrib/webview/common/resourceLoader';
+import { Schemas } from 'vs/base/common/network';
 
 export interface IDimensionMessage {
 	__vscode_notebook_message: boolean;
@@ -153,7 +153,7 @@ export class BackLayerWebView extends Disposable {
 		this.element.style.margin = `0px 0 0px ${CELL_MARGIN + CELL_RUN_GUTTER}px`;
 
 		const pathsPath = getPathFromAmdModule(require, 'vs/loader.js');
-		const loader = URI.file(pathsPath).with({ scheme: WebviewResourceScheme });
+		const loader = URI.file(pathsPath).with({ scheme: Schemas.vscodeWebviewResource });
 
 		let coreDependencies = '';
 		let resolveFunc: () => void;
@@ -567,7 +567,7 @@ ${loaderJs}
 			allowMultipleAPIAcquire: true,
 			allowScripts: true,
 			localResourceRoots: this.localResourceRootsCache
-		});
+		}, undefined);
 		webview.html = content;
 		return webview;
 	}
@@ -711,7 +711,7 @@ ${loaderJs}
 					if (this.environmentService.isExtensionDevelopment && (preloadResource.scheme === 'http' || preloadResource.scheme === 'https')) {
 						return preloadResource;
 					}
-					return preloadResource.with({ scheme: WebviewResourceScheme });
+					return preloadResource.with({ scheme: Schemas.vscodeWebviewResource });
 				});
 				extensionLocations.push(rendererInfo.extensionLocation);
 				preloadResources.forEach(e => {
