@@ -4,13 +4,25 @@
  *--------------------------------------------------------------------------------------------*/
 // @ts-check
 
-'use strict';
-
 const fs = require('fs');
 const path = require('path');
 const rimraf = require('rimraf');
 
+const Terser = require('terser');
+
 const root = path.join(__dirname, 'node_modules', 'typescript');
+
+const toOptimize = new Set([
+	'tsserver.js',
+	'typescript.js',
+	'typingsInstaller.js',
+]);
+
+const toDelete = new Set([
+	'tsc.js',
+	'tsserverlibrary.js',
+	'typescriptServices.js',
+]);
 
 function processRoot() {
 	const toKeep = new Set([
@@ -23,34 +35,50 @@ function processRoot() {
 			console.log(`Removed ${filePath}`);
 			rimraf.sync(filePath);
 		}
+
+		for (const name of fs.readdirSync(root)) {
+			if (name === 'lib.d.ts' || name.match(/^lib\..*\.d\.ts$/) || name === 'protocol.d.ts' || name === 'typescript.d.ts') {
+				continue;
+			}
+		}
 	}
 }
 
 function processLib() {
-	const toDelete = new Set([
-		'tsc.js',
-		'tsserverlibrary.js',
-		'typescriptServices.js',
-	]);
-
 	const libRoot = path.join(root, 'lib');
 
+	// Only run optimize if we have not already done so
+	const needsOptimize = fs.existsSync(path.join(libRoot, 'tsc.js'));
+
 	for (const name of fs.readdirSync(libRoot)) {
-		if (name === 'lib.d.ts' || name.match(/^lib\..*\.d\.ts$/) || name === 'protocol.d.ts') {
-			continue;
-		}
-		if (name === 'typescript.js' || name === 'typescript.d.ts') {
-			// used by html and extension editing
+		if (name === 'lib.d.ts' || name.match(/.*\.d\.ts$/) || name === 'protocol.d.ts') {
 			continue;
 		}
 
+		const filePath = path.join(libRoot, name);
 		if (toDelete.has(name) || name.match(/\.d\.ts$/)) {
 			try {
-				fs.unlinkSync(path.join(libRoot, name));
-				console.log(`removed '${path.join(libRoot, name)}'`);
+				fs.unlinkSync(filePath);
+				console.log(`Removed '${filePath}'`);
 			} catch (e) {
 				console.warn(e);
 			}
+			continue;
+		}
+
+		if (needsOptimize && toOptimize.has(name)) {
+			const result = Terser.minify(fs.readFileSync(filePath).toString('utf-8'), {
+				sourceMap: {
+					url: name + '.map',
+				}
+			});
+			console.log(`Optimized '${filePath}'`);
+
+			fs.writeFileSync(filePath, result.code);
+			if (result.map) {
+				fs.writeFileSync(filePath + '.map', result.map);
+			}
+			continue;
 		}
 	}
 }
