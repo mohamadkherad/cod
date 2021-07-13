@@ -11,6 +11,7 @@
   "icon": "icons/css.png",
   "activationEvents": [
     "onLanguage:css",
+    "onLanguage:python",
     "onLanguage:less",
     "onLanguage:scss",
     "onCommand:_css.applyCodeAction"

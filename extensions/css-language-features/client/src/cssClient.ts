@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { commands, CompletionItem, CompletionItemKind, ExtensionContext, languages, Position, Range, SnippetString, TextEdit, window, TextDocument, CompletionContext, CancellationToken, ProviderResult, CompletionList } from 'vscode';
-import { Disposable, LanguageClientOptions, ProvideCompletionItemsSignature, NotificationType, CommonLanguageClient } from 'vscode-languageclient';
+import { commands, CompletionItem, CompletionItemKind, ExtensionContext, languages, Position, Range, SnippetString, TextDocument, TextEdit, window } from 'vscode';
+import { CommonLanguageClient, Disposable, LanguageClientOptions, NotificationType } from 'vscode-languageclient';
 import * as nls from 'vscode-nls';
 import { getCustomDataSource } from './customData';
 import { RequestService, serveFileSystemRequests } from './requests';
@@ -26,56 +26,56 @@ export function startClient(context: ExtensionContext, newLanguageClient: Langua
 
 	const customDataSource = getCustomDataSource(context.subscriptions);
 
-	let documentSelector = ['css', 'scss', 'less'];
+	let documentSelector = ['python'];
 
 	// Options to control the language client
 	let clientOptions: LanguageClientOptions = {
 		documentSelector,
 		synchronize: {
-			configurationSection: ['css', 'scss', 'less']
+			configurationSection: ['python']
 		},
 		initializationOptions: {
 			handledSchemas: ['file']
 		},
-		middleware: {
-			provideCompletionItem(document: TextDocument, position: Position, context: CompletionContext, token: CancellationToken, next: ProvideCompletionItemsSignature): ProviderResult<CompletionItem[] | CompletionList> {
-				// testing the replace / insert mode
-				function updateRanges(item: CompletionItem) {
-					const range = item.range;
-					if (range instanceof Range && range.end.isAfter(position) && range.start.isBeforeOrEqual(position)) {
-						item.range = { inserting: new Range(range.start, position), replacing: range };
+		// middleware: {
+		// 	provideCompletionItem(document: TextDocument, position: Position, context: CompletionContext, token: CancellationToken, next: ProvideCompletionItemsSignature): ProviderResult<CompletionItem[] | CompletionList> {
+		// 		// testing the replace / insert mode
+		// 		function updateRanges(item: CompletionItem) {
+		// 			const range = item.range;
+		// 			if (range instanceof Range && range.end.isAfter(position) && range.start.isBeforeOrEqual(position)) {
+		// 				item.range = { inserting: new Range(range.start, position), replacing: range };
 
-					}
-				}
-				function updateLabel(item: CompletionItem) {
-					if (item.kind === CompletionItemKind.Color) {
-						item.label = {
-							label: item.label as string,
-							description: (item.documentation as string)
-						};
-					}
-				}
-				// testing the new completion
-				function updateProposals(r: CompletionItem[] | CompletionList | null | undefined): CompletionItem[] | CompletionList | null | undefined {
-					if (r) {
-						(Array.isArray(r) ? r : r.items).forEach(updateRanges);
-						(Array.isArray(r) ? r : r.items).forEach(updateLabel);
-					}
-					return r;
-				}
-				const isThenable = <T>(obj: ProviderResult<T>): obj is Thenable<T> => obj && (<any>obj)['then'];
+		// 			}
+		// 		}
+		// 		function updateLabel(item: CompletionItem) {
+		// 			if (item.kind === CompletionItemKind.Color) {
+		// 				item.label = {
+		// 					label: item.label as string,
+		// 					description: (item.documentation as string)
+		// 				};
+		// 			}
+		// 		}
+		// 		// testing the new completion
+		// 		function updateProposals(r: CompletionItem[] | CompletionList | null | undefined): CompletionItem[] | CompletionList | null | undefined {
+		// 			if (r) {
+		// 				(Array.isArray(r) ? r : r.items).forEach(updateRanges);
+		// 				(Array.isArray(r) ? r : r.items).forEach(updateLabel);
+		// 			}
+		// 			return r;
+		// 		}
+		// 		const isThenable = <T>(obj: ProviderResult<T>): obj is Thenable<T> => obj && (<any>obj)['then'];
 
-				const r = next(document, position, context, token);
-				if (isThenable<CompletionItem[] | CompletionList | null | undefined>(r)) {
-					return r.then(updateProposals);
-				}
-				return updateProposals(r);
-			}
-		}
+		// 		const r = next(document, position, context, token);
+		// 		if (isThenable<CompletionItem[] | CompletionList | null | undefined>(r)) {
+		// 			return r.then(updateProposals);
+		// 		}
+		// 		return updateProposals(r);
+		// 	}
+		// }
 	};
 
 	// Create the language client and start the client.
-	let client = newLanguageClient('css', localize('cssserver.name', 'CSS Language Server'), clientOptions);
+	let client = newLanguageClient('python', localize('cssserver.name', 'CSS Language Server'), clientOptions);
 	client.registerProposedFeatures();
 	client.onReady().then(() => {
 
